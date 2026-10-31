@@ -1,0 +1,40 @@
+name: Combine IP Lists
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout custom repo
+      uses: actions/checkout@v4
+
+    - name: Download original ip.txt and combine
+      run: |
+        # 1. Скачиваем оригинальный список IP
+        curl -s https://githubusercontent.com -o original.txt
+        
+        # 2. Объединяем списки (учитываем имя вашего файла k45-ips.txt)
+        if [ -s k45-ips.txt ]; then
+          cat original.txt k45-ips.txt > combined_raw.txt
+        else
+          cat original.txt > combined_raw.txt
+        fi
+        
+        # 3. ОЧИСТКА: Удаляем комментарии (начинающиеся с #), пустые строки, пробелы и дубликаты
+        sed '/^#/d; /^[[:space:]]*$/d; s/[[:space:]]//g' combined_raw.txt | sort -u > my_ip.txt
+        
+        rm original.txt combined_raw.txt
+
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "github-actions[bot]@://github.com"
+        git config --local user.name "github-actions[bot]"
+        git add my_ip.txt
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update: combined IP list $(date -u +'%Y-%m-%d %H:%M:%S') UTC" && git push)
