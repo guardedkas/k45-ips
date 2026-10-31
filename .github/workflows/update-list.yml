@@ -28,7 +28,7 @@ jobs:
         fi
         
         # 3. ОЧИСТКА: Удаляем комментарии (начинающиеся с #), пустые строки, пробелы и дубликаты
-        sed '/^#/d; /^[[:space:]]*$/d; s/[[:space:]]//g' combined_raw.txt | sort -u > my_ip.txt
+        sed '/^#/d; /^[[:space:]]*$/d; s/[[:space:]]//g' combined_raw.txt | sort -u > k45ip.txt
         
         rm original.txt combined_raw.txt
 
@@ -36,5 +36,5 @@ jobs:
       run: |
         git config --local user.email "github-actions[bot]@://github.com"
         git config --local user.name "github-actions[bot]"
-        git add my_ip.txt
+        git add k45ip.txt
         git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update: combined IP list $(date -u +'%Y-%m-%d %H:%M:%S') UTC" && git push)
