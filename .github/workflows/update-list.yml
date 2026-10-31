@@ -18,7 +18,7 @@ jobs:
     - name: Download original ip.txt and combine
       run: |
         # 1. Скачиваем оригинальный список IP
-        curl -s https://githubusercontent.com -o original.txt
+        curl -s https://raw.githubusercontent.com/eduard256/russia-blocked-ips/main/ip.txt -o original.txt
         
         # 2. Объединяем списки (учитываем имя вашего файла k45-ips.txt)
         if [ -s k45-ips.txt ]; then
