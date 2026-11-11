@@ -10,31 +10,71 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
-    - name: Checkout custom repo
-      uses: actions/checkout@v4
+      - name: Checkout custom repo
+        uses: actions/checkout@v4
 
-    - name: Download original ip.txt and combine
-      run: |
-        # 1. Скачиваем оригинальный список IP
-        curl -s https://raw.githubusercontent.com/eduard256/russia-blocked-ips/main/ip.txt -o original.txt
-        
-        # 2. Объединяем списки (учитываем имя вашего файла k45-ips.txt)
-        if [ -s k45-ips.txt ]; then
-          cat original.txt k45-ips.txt > combined_raw.txt
-        else
-          cat original.txt > combined_raw.txt
-        fi
-        
-        # 3. ОЧИСТКА: Удаляем комментарии (начинающиеся с #), пустые строки, пробелы и дубликаты
-        sed '/^#/d; /^[[:space:]]*$/d; s/[[:space:]]//g' combined_raw.txt | sort -u > k45ip.txt
-        
-        rm original.txt combined_raw.txt
+      - name: Download original ip.txt and combine
+        run: |
+          # 1. Скачиваем оригинальный список (-f: падать при HTTP-ошибке)
+          curl -fsS https://raw.githubusercontent.com/eduard256/russia-blocked-ips/main/ip.txt -o original.txt
 
-    - name: Commit and push changes
-      run: |
-        git config --local user.email "github-actions[bot]@://github.com"
-        git config --local user.name "github-actions[bot]"
-        git add k45ip.txt
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update: combined IP list $(date -u +'%Y-%m-%d %H:%M:%S') UTC" && git push)
+          # 2. Объединяем
+          if [ -s k45-ips.txt ]; then
+            cat original.txt k45-ips.txt > combined_raw.txt
+          else
+            cat original.txt > combined_raw.txt
+          fi
+
+          # 3. Очистка: комментарии, пустые строки, пробелы, дубликаты
+          sed '/^#/d; /^[[:space:]]*$/d; s/[[:space:]]//g' combined_raw.txt | sort -u > k45ip.txt
+
+          # Защита от пустого результата
+          [ -s k45ip.txt ] || { echo "k45ip.txt пустой, прерываю"; exit 1; }
+
+          rm original.txt combined_raw.txt
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Build k45ip.dat for v2rayA
+        run: |
+          go install -v github.com/v2fly/geoip@latest
+
+          cat > geoip-config.json <<'EOF'
+          {
+            "input": [
+              {
+                "type": "text",
+                "action": "add",
+                "args": {
+                  "name": "k45",
+                  "uri": "./k45ip.txt"
+                }
+              }
+            ],
+            "output": [
+              {
+                "type": "v2rayGeoIPDat",
+                "action": "output",
+                "args": {
+                  "outputName": "k45ip.dat",
+                  "outputDir": "./"
+                }
+              }
+            ]
+          }
+          EOF
+
+          "$(go env GOPATH)/bin/geoip" -c geoip-config.json
+          rm geoip-config.json
+          ls -l k45ip.dat
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add k45ip.txt k45ip.dat
+          git diff --staged --quiet || (git commit -m "Auto-update: combined IP list $(date -u +'%Y-%m-%d %H:%M:%S') UTC" && git push)
